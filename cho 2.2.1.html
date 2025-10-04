@@ -1,0 +1,836 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Вариативная программа — генератор дня (Итерация 2)</title>
+
+  <!-- React 18 UMD -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel for JSX in this single-file demo -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Inter font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    *{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body{ color:#111827; background:#F9FAFB; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+    .card{ box-shadow: 0 10px 15px -3px rgba(0,0,0,.06), 0 4px 6px -2px rgba(0,0,0,.03); }
+    .subtle{ box-shadow:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04); }
+    .tap{ min-height:44px; min-width:44px; }
+    .seg-active{ background:#111827; color:#fff }
+    .seg-passive{ background:transparent; color:#111827 }
+    .hide-scrollbar::-webkit-scrollbar{ display:none } .hide-scrollbar{ -ms-overflow-style:none; scrollbar-width:none }
+
+    /* Done chip */
+    .btn-done{ display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:#f3f4f6;
+               color:#374151;border:1px solid #e5e7eb;transition:all .18s ease;box-shadow:0 1px 2px rgba(0,0,0,.04) }
+    .btn-done:hover{ background:#eef2ff; border-color:#dbeafe }
+    .btn-done.is-on{ background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-color:transparent;
+                     box-shadow:0 8px 18px rgba(16,185,129,.25), 0 2px 6px rgba(16,185,129,.15); animation: pop .24s ease-out }
+    .btn-done svg{ width:18px; height:18px }
+
+    @keyframes pop { 0%{ transform:scale(.9) } 100%{ transform:scale(1) } }
+    .page{ opacity:0; transform: translateY(6px); transition: all .28s ease }
+    .page.show{ opacity:1; transform: translateY(0) }
+
+    /* Accordion */
+    .acc-enter{ max-height:0; opacity:.0; overflow:hidden }
+    .acc-enter.open{ max-height:1400px; opacity:1; transition:max-height .35s ease, opacity .35s ease }
+
+    /* Steps */
+    .instructions{ list-style:none; counter-reset:step; padding-left:0; }
+    .instructions li{ counter-increment:step; display:flex; align-items:flex-start; margin:.5rem 0; font-size:.95rem; line-height:1.7 }
+    .instructions li::before{ content:counter(step); font-weight:600; font-size:.75rem; color:#6b7280; border:1px solid #e5e7eb; background:#fff;
+                               border-radius:9999px; width:1.5rem; height:1.5rem; display:flex; align-items:center; justify-content:center;
+                               flex-shrink:0; margin-right:.6rem; margin-top:.2rem }
+
+    /* Modal */
+    .modal{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(17,24,39,.4); z-index:70 }
+    .modal-card{ background:#fff; border-radius:16px; max-width:560px; width:92%; box-shadow:0 25px 50px -12px rgba(0,0,0,.25) }
+
+    /* Timer */
+    .timer-sheet{ position:fixed; left:0; right:0; bottom:0; background:#fff; border-top-left-radius:16px; border-top-right-radius:16px;
+                  box-shadow:0 -10px 30px rgba(0,0,0,.15); z-index:80; }
+    .timer-pill{ position:fixed; right:16px; bottom:16px; z-index:80; background:#111827; color:#fff; padding:.5rem .8rem; border-radius:9999px;
+                 box-shadow:0 6px 18px rgba(0,0,0,.25) }
+  </style>
+</head>
+<body class="antialiased">
+  <div id="root"><div class="p-4">Загрузка интерфейса…</div></div>
+
+  <!-- CDN guard -->
+  <script>
+    (function() {
+      function show(msg) {
+        var el = document.getElementById('root');
+        if (el) el.innerHTML = '<div style="padding:16px;border:1px solid #fee2e2;background:#fef2f2;border-radius:12px;color:#991b1b;line-height:1.6">'+msg+'</div>';
+      }
+      if (!window.React || !window.ReactDOM) { show('Не удалось загрузить React/ReactDOM из CDN. Нужна офлайн‑сборка? Скажи — соберу.'); return; }
+      if (!window.Babel) { show('Не удалось загрузить Babel (для JSX). Открой при доступном интернете или дам офлайн‑версию.'); return; }
+      window.addEventListener('error', e => show('Ошибка: ' + (e && e.message ? e.message : 'неизвестно')));
+      window.addEventListener('unhandledrejection', e => show('Ошибка (promise): ' + (e && e.reason && e.reason.message ? e.reason.message : 'неизвестно')));
+    })();
+  </script>
+
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } = React;
+
+    // ---------- Icons ----------
+    const Icon = ({ name, className="w-6 h-6", strokeWidth=1.5 }) => {
+      const P = d => (<svg className={className} fill="none" stroke="currentColor" strokeWidth={strokeWidth} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={d}/></svg>);
+      const S = d => (<svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d={d}/></svg>);
+      const M = {
+        ChevronLeft: P("M15 19l-7-7 7-7"),
+        ChevronDown: P("M19 9l-7 7-7-7"),
+        Check: S("M9 16.2l-3.5-3.6L4 14.1l5 4.9L20 8.1l-1.5-1.4z"),
+        Clock: P("M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"),
+        User: P("M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"),
+        Heart: P("M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"),
+        Activity: P("M13 10V3L4 14h7v7l9-11h-7z"),
+        Circle: P("M12 20a8 8 0 100-16 8 8 0 000 16z"),
+        Play: S("M8 5v14l11-7z"),
+        Pause: S("M6 4h4v16H6zm8 0h4v16h-4z"),
+        Rotate: P("M1 4v6h6M3.51 15a9 9 0 108.49-12"),
+        Close: P("M6 18L18 6M6 6l12 12"),
+        Shuffle: P("M4 4h5l2 3-2 3H4m11-6l5 5-5 5"),
+        Info: P("M13 16h-1v-4h-1m1-4h.01"),
+        ArrowRight: P("M13 7l5 5-5 5m5-5H6"),
+        List: P("M4 6h16M4 12h16M4 18h16")
+      };
+      return M[name] || <span/>;
+    };
+
+    // ---------- LS utils ----------
+    const LS = {
+      get(k,def){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch{return def} },
+      set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+    };
+
+    // ---------- Seed per device ----------
+    function uuid4(){
+      const s = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+        const r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8); return v.toString(16);
+      });
+      return s;
+    }
+    function ensureSeed(){
+      let app = LS.get('app.meta', null);
+      if (!app){ app = { seed: uuid4(), cycle: 1, schemaVersion: 1 }; LS.set('app.meta', app); }
+      return app;
+    }
+    const APP = ensureSeed();
+
+    // ---------- RNG ----------
+    function mulberry32(a){ return function(){ var t = a += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; } }
+    function strSeed(s){ let h=2166136261; for (let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h = Math.imul(h, 16777619); } return h>>>0; }
+    const rngFrom = (seedStr)=> mulberry32(strSeed(seedStr));
+
+    // ---------- Data (subset, enriched) ----------
+    const EX_STRETCH = [
+      {id:'neck_decompress', name:'Декомпрессия шеи', duration:5, tags:['area:neck','type:mobility','lvl:1'],
+        steps:['Сядь устойчиво, плечи вниз','Наклон головы вправо 20–30 сек','Вернись и повтори влево','Подбородок к груди 20 сек'],
+        focus:['Тянемся макушкой','Выдох — отпускание'], mistakes:['Рывки','Поднятые плечи'],
+        mechanism:'Снижение гипертонуса трапециевидной и лестничных', contraindications:'Головокружение — остановить',
+        progressions:['neck_iso_antagonist'] },
+      {id:'neck_iso_antagonist', name:'Изометрия антагонистов шеи', duration:6, tags:['area:neck','type:stability','lvl:2'],
+        steps:['Ладонь к виску','Надави головой на ладонь 5 сек без движения','Расслабь 5 сек ×5 в стороны и вперёд'],
+        mechanism:'Нормализация тонуса через ко-конракции' },
+      {id:'door_pec', name:'Грудные у дверного проёма', duration:6, tags:['area:shoulder','type:mobility','lvl:1'],
+        steps:['Предплечья на косяки 90°','Плавно корпус вперёд 30 сек','Подними руки до 120° и повтори'],
+        focus:['Грудь раскрыта, поясница нейтральна'], mistakes:['Провал в пояснице'],
+        mechanism:'Растяжение малой грудной, улучшение постуры' },
+      {id:'tspine_rotation', name:'Ротация грудного отдела', duration:6, tags:['area:tspine','type:mobility','lvl:1'],
+        steps:['Сидя, руки на груди','Поворот вправо + 3 микропружины + удержание','Повтор влево ×3'],
+        mechanism:'Увеличение ротации T‑spine' },
+      {id:'neuro_sciatic', name:'Нейродинамика седалищного нерва', duration:7, tags:['area:hamstrings','type:neuro','lvl:1'],
+        steps:['Лёжа, подтяни колено','Выпрямляй голень до натяжения','Носок на себя 30 сек ×2/ногу'],
+        mechanism:'Улучшение скольжения нерва', contraindications:'Острая радикулопатия — только с терапевтом' },
+      {id:'hip_flexor_release', name:'Релиз подвздошно‑поясничной', duration:8, tags:['area:hips','type:mobility','lvl:2'],
+        steps:['Низкий выпад','Таз вперёд/вниз, корпус вертикален','Руку вверх + наклон в сторону 45 сек'],
+        mechanism:'Восстановление нейтрального таза' },
+      {id:'posterior_chain', name:'Растяжка задней цепи', duration:8, tags:['area:hamstrings','type:mobility','lvl:2'],
+        steps:['Сидя, ноги прямые','Наклон от таза, спина ровная 30 сек','Вариант «дерево» по очереди'],
+        mechanism:'Комплексное удлинение задней линии' },
+      {id:'ankle_mob', name:'Активная мобилизация голеностопа', duration:5, tags:['area:ankle','type:mobility','lvl:1'],
+        steps:['15 тыльных/подошвенных сгибаний','15 кругов в каждую сторону','20 подъёмов на носки с паузой 2 сек'],
+        mechanism:'Активация венозной помпы, рост ROM' }
+    ];
+
+    const EX_LFK = [
+      {id:'quad_iso', name:'Изометрия квадрицепса', duration:6, tags:['area:core','type:stability','lvl:1'],
+        steps:['Выпрями ногу','Прижимай колено 8 сек → расслабь 3 сек ×12'],
+        mechanism:'Нейромышечный контроль без осевой нагрузки' },
+      {id:'deep_core', name:'Глубокие стабилизаторы (TA/multifidus)', duration:6, tags:['area:core','type:stability','lvl:2'],
+        steps:['Лёжа, колени 90°','Втяни живот на ~30%, удерживай 10 сек','Отдых 5 сек ×15'],
+        mechanism:'Активация поперечной и межостистых' },
+      {id:'wall_squat', name:'Присед у стены', duration:7, tags:['area:hips','type:strength','lvl:2'],
+        steps:['Спина по стене до ~90°','Пауза 3–5 сек, медленный подъём ×10–15'],
+        mechanism:'Сила ног без компрессии' },
+      {id:'bridge', name:'Ягодичный мост', duration:6, tags:['area:hips','type:strength','lvl:1'],
+        steps:['Колени 90°','Сжать ягодицы — подъём таза','Пауза 3 сек ×15 ×2'],
+        mechanism:'Стабилизация таза' },
+      {id:'single_leg_balance', name:'Баланс на одной ноге', duration:6, tags:['area:balance','type:balance','lvl:1'],
+        steps:['Удерживай 20–45 сек','Усложнение: закрыть глаза/повороты головы'],
+        mechanism:'Проприоцепция стопы и голени' },
+      {id:'dead_bug', name:'Dead Bug (анти‑ротация)', duration:6, tags:['area:core','type:stability','lvl:2'],
+        steps:['Лёжа, руки вверх, колени 90°','Опускай противоположные рука/нога','Поясница к полу'],
+        mechanism:'Антиротационный контроль' },
+      {id:'heel_raise', name:'Подъёмы на носки', duration:5, tags:['area:ankle','type:strength','lvl:1'],
+        steps:['20 подъёмов на носки','Пауза 2 сек вверху ×2–3 подхода'],
+        mechanism:'Икроножные, венозная помпа' }
+    ];
+
+    const EX_MEDIT = [
+      {id:'478', name:'Дыхание 4‑7‑8', duration:10, tags:['area:breath','type:breath','lvl:1'],
+        steps:['Выдох ртом','Вдох носом 4','Пауза 7','Выдох 8 ×4–8 циклов'],
+        mechanism:'Активация парасимпатики, снижение ЧСС' },
+      {id:'pmr', name:'Прогрессивная релаксация', duration:15, tags:['area:breath','type:awareness','lvl:1'],
+        steps:['Напряги мышцу 7 сек → расслабь 15 сек','Стопы→голени→бёдра→ягодицы→живот→спина→плечи→руки→шея→лицо'],
+        mechanism:'Обучение напряжение/релаксация' },
+      {id:'body_scan', name:'Body Scan', duration:20, tags:['area:breath','type:awareness','lvl:2'],
+        steps:['Лёжа, внимание сверху вниз','30–60 сек на сегмент, без оценки'],
+        mechanism:'Развитие интероцепции' },
+      {id:'anapanasati', name:'Анапанасати', duration:20, tags:['area:breath','type:breath','lvl:2'],
+        steps:['Сядь ровно','Естественное дыхание, счёт до 10 и заново','Возвращай внимание без самоосуждения'],
+        mechanism:'Устойчивое внимание' },
+      {id:'metta', name:'Metta (доброжелательность)', duration:15, tags:['area:breath','type:awareness','lvl:1'],
+        steps:['Пожелания благополучия: себе → близкому → нейтральному → сложному человеку → всем'],
+        mechanism:'Аффилиативные сети, эмоциональная регуляция' }
+    ];
+
+    // ---------- Themes ----------
+    const THEMES = [
+      { id:'mon_posture',  dow:1, title:'Осанка и шея',           pools:['area:neck','area:tspine'],     include:['type:mobility','type:stability','type:balance'] },
+      { id:'tue_shoulders',dow:2, title:'Плечи и грудной',        pools:['area:shoulder','area:tspine'], include:['type:mobility','type:stability'] },
+      { id:'wed_posterior', dow:3, title:'Таз и задняя цепь',     pools:['area:hips','area:hamstrings'], include:['type:mobility','type:strength'] },
+      { id:'thu_ankle',     dow:4, title:'Стопа и голеностоп',    pools:['area:ankle','area:balance'],   include:['type:mobility','type:strength'] },
+      { id:'fri_integration',dow:5,title:'Интеграция и координация', pools:['area:core','area:balance'], include:['type:stability','type:balance'] },
+      { id:'sat_deload',    dow:6, title:'Длинная прогулка + мобилити', pools:['area:hips','area:tspine'], include:['type:mobility'] },
+      { id:'sun_active',    dow:7, title:'Активное восстановление', pools:['area:breath','area:balance'], include:['type:awareness','type:breath'] },
+    ];
+
+    // ---------- Helpers ----------
+    const typeOf = ex => (ex.tags.find(t=>t.startsWith('type:'))||'type:mobility');
+    const areaOf = ex => (ex.tags.find(t=>t.startsWith('area:'))||'area:unknown');
+    const levelOf = ex => (ex.tags.find(t=>t.startsWith('lvl:'))||'lvl:1');
+    const anyTag = (ex, tags) => tags.some(t => ex.tags.includes(t));
+    const filterByPools = (exs, pools) => exs.filter(ex => anyTag(ex, pools));
+    const filterByPain = (exs, painAreas) => {
+      const painMap = {
+        'шея':['area:neck'], 'плечо':['area:shoulder','area:tspine'],
+        'таз/спина':['area:hips','area:core'], 'задняя цепь':['area:hamstrings'],
+        'стопа/голеностоп':['area:ankle']
+      };
+      const ban = new Set(); painAreas.forEach(p => (painMap[p]||[]).forEach(t=>ban.add(t)));
+      return exs.filter(ex => !ex.tags.some(t => ban.has(t)));
+    };
+    const filterByLevelRPE = (exs, rpe, lowStreak) => {
+      if (rpe>=7) return exs.filter(ex => ['lvl:1','lvl:2'].includes(levelOf(ex)));
+      if (lowStreak>=2 && rpe<=3) return exs.filter(ex => levelOf(ex)!=='lvl:1').concat(exs.filter(ex => levelOf(ex)==='lvl:1'));
+      return exs;
+    };
+    const excludeStrengthIfHighRPE = (exs, rpe) => rpe>=7 ? exs.filter(ex => typeOf(ex)!=='type:strength') : exs;
+
+    // rarity ranking support
+    function countUsage(ids){
+      const log = LS.get('plan.log', []);
+      const map = new Map();
+      ids.forEach(id => map.set(id, 0));
+      log.forEach(id => { if (map.has(id)) map.set(id, map.get(id)+1); });
+      return map;
+    }
+
+    // greedy minute packer with type diversity and ±10% tolerance
+    function packByMinutes(rng, candidates, requiredTypes, targetMin, lastAreas, options={}){
+      const tol = options.tolerance ?? 0.10;
+      const minMin = Math.round(targetMin*(1-tol));
+      const maxMin = Math.round(targetMin*(1+tol));
+      let pool = candidates.slice();
+      // deprioritize last primary area
+      if (lastAreas && lastAreas.length){
+        const la = lastAreas[0];
+        pool.sort((a,b)=> (areaOf(a)===la)-(areaOf(b)===la) || a.duration-b.duration);
+      } else {
+        pool.sort((a,b)=> a.duration-b.duration);
+      }
+      const byType = t => pool.filter(ex => typeOf(ex)===t);
+      let picked = [];
+      // ensure required types first
+      requiredTypes.forEach(t => {
+        const arr = byType(t);
+        if (arr.length){
+          picked.push(arr[Math.floor(rng()*arr.length)]);
+          pool = pool.filter(ex => ex.id!==picked[picked.length-1].id);
+        }
+      });
+      let sum = picked.reduce((s,x)=>s+x.duration,0);
+      // fill to minMin
+      while (sum < minMin && pool.length){
+        // choose item that best fits remaining
+        const remaining = minMin - sum;
+        pool.sort((a,b)=> Math.abs(a.duration-remaining) - Math.abs(b.duration-remaining));
+        const next = pool.shift();
+        if (!next) break;
+        picked.push(next);
+        sum += next.duration;
+      }
+      // trim if above max
+      while (sum > maxMin && picked.length>1){
+        // try removing the item that reduces overshoot most while keeping >= requiredTypes in set
+        let removed = false;
+        for (let i=picked.length-1; i>=0; i--){
+          const t = typeOf(picked[i]);
+          const countT = picked.filter(x=>typeOf(x)===t).length;
+          if (countT>1){ // keep at least one per type
+            sum -= picked[i].duration;
+            picked.splice(i,1);
+            removed = true;
+            if (sum<=maxMin) break;
+          }
+        }
+        if (!removed) break;
+      }
+      return picked;
+    }
+
+    // Replace ranking
+    function rankAlternatives(ex, cand){
+      const lvlNum = l => parseInt((l||'lvl:1').split(':')[1],10)||1;
+      const exLvl = lvlNum(levelOf(ex));
+      const usage = countUsage(cand.map(c=>c.id));
+      return cand.map(c => {
+        const score = (areaOf(c)===areaOf(ex)?3:0) + (typeOf(c)===typeOf(ex)?2:0) - Math.abs(lvlNum(levelOf(c))-exLvl) + (4/(1+(usage.get(c.id)||0)));
+        const reason = [
+          areaOf(c)===areaOf(ex)?'та же область':null,
+          typeOf(c)===typeOf(ex)?'тот же тип':null,
+          `уровень ${levelOf(c).split(':')[1]}`
+        ].filter(Boolean).join(', ');
+        return { ...c, __score: score, __why: reason };
+      }).sort((a,b)=> b.__score - a.__score);
+    }
+
+    // ---------- Timer context (persist across nav) ----------
+    const TimerCtx = createContext(null);
+    const useTimer = () => useContext(TimerCtx);
+    function TimerProvider({ children }){
+      const [state,setState] = useState(()=>LS.get('timer.state',{time:0,target:0,run:false,collapsed:false,label:''}));
+      useEffect(()=>LS.set('timer.state', state),[state]);
+      // ticking
+      useEffect(()=>{
+        if (!state.run || state.time<=0) return;
+        const id = setInterval(()=>setState(p=>({...p,time:p.time-1})),1000);
+        return ()=>clearInterval(id);
+      },[state.run, state.time]);
+      const start = (min,label='') => setState({ time:min*60, target:min*60, run:true, collapsed:false, label });
+      const pause = ()=> setState(p=>({...p, run:!p.run }));
+      const reset = ()=> setState(p=>({...p, time:p.target, run:false }));
+      const close = ()=> setState({ time:0,target:0,run:false,collapsed:false,label:'' });
+      const collapse = ()=> setState(p=>({...p, collapsed:true }));
+      const expand = ()=> setState(p=>({...p, collapsed:false }));
+
+      return <TimerCtx.Provider value={{state,start,pause,reset,close,collapse,expand}}>{children}</TimerCtx.Provider>
+    }
+    const fmt = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+
+    // ---------- Components ----------
+    const Segmented = ({active,onChange}) => (
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-2 bg-gray-100 rounded-xl p-1">
+            {['overview','program','progress'].map(k=>(
+              <button key={k} className={"tap px-4 py-2 rounded-lg text-sm "+(active===k?'seg-active':'seg-passive')} onClick={()=>onChange(k)}>
+                {k==='overview'?'Обзор':k==='program'?'Программа':'Прогресс'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
+    const ExerciseItem = ({ ex, onReplace, onStartTimer }) => {
+      const [open,setOpen]=useState(false);
+      return (
+        <div className={"border-b border-gray-100 last:border-b-0 "+(open?'bg-white':'hover:bg-gray-50')}>
+          <div className="flex items-center justify-between p-4">
+            <div className="flex-1 pr-4">
+              <h4 className="font-medium text-base text-gray-800">{ex.name}</h4>
+              <div className="text-xs text-gray-500 mt-1">~ {ex.duration} мин</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={()=>setOpen(o=>!o)} className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-sm" aria-expanded={open}>{open?'Свернуть':'Показать'}</button>
+              <button onClick={()=>onReplace(ex)} className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-sm flex items-center gap-1" aria-label="Заменить упражнение"><Icon name="Shuffle" className="w-4 h-4" /> Заменить</button>
+            </div>
+          </div>
+          <div className={"acc-enter "+(open?'open':'')}>
+            <div className="px-4 pb-5">
+              {ex.steps && ex.steps.length>0 && (
+                <div className="mb-3">
+                  <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Шаги</div>
+                  <ol className="instructions text-gray-700">{ex.steps.map((s,i)=><li key={i}>{s.endsWith('.')?s:s+'.'}</li>)}</ol>
+                </div>
+              )}
+              {ex.focus && ex.focus.length>0 && (
+                <div className="mb-2"><div className="text-xs font-semibold text-gray-600 uppercase mb-1">Фокус</div><ul className="list-disc pl-5 text-sm text-gray-700">{ex.focus.map((s,i)=><li key={i}>{s}</li>)}</ul></div>
+              )}
+              {ex.mistakes && ex.mistakes.length>0 && (
+                <div className="mb-2"><div className="text-xs font-semibold text-gray-600 uppercase mb-1">Ошибки</div><ul className="list-disc pl-5 text-sm text-gray-700">{ex.mistakes.map((s,i)=><li key={i}>{s}</li>)}</ul></div>
+              )}
+              {ex.mechanism && <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm text-gray-800"><b>Зачем:</b> {ex.mechanism}</div>}
+              {ex.contraindications && <div className="text-xs text-orange-700 mt-1">⚠ {ex.contraindications}</div>}
+              <div className="mt-3">
+                <button onClick={()=>onStartTimer(ex.duration, ex.name)} className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm">Запустить таймер</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const ReplaceModal = ({ open, onClose, ex, list, onPick }) => {
+      if (!open) return null;
+      return (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Выбор замены">
+          <div className="modal-card p-6">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-lg font-semibold">Выберите замену для «{ex?.name}»</h3>
+              <button className="text-gray-400 hover:text-gray-700" onClick={onClose} aria-label="Закрыть"><Icon name="Close" /></button>
+            </div>
+            <div className="space-y-3 max-h-[60vh] overflow-auto">
+              {list.length===0 && <div className="text-sm text-gray-600">Подходящих аналогов не найдено.</div>}
+              {list.map(alt => (
+                <button key={alt.id} onClick={()=>onPick(alt)} className="w-full text-left p-3 rounded-xl border border-gray-200 hover:bg-gray-50" aria-label={`Выбрать: ${alt.name}`}>
+                  <div className="font-medium text-gray-900">{alt.name}</div>
+                  <div className="text-xs text-gray-600 mt-0.5">~ {alt.duration} мин • {alt.tags.join(', ').replace(/(area:|type:|lvl:)/g,'')}</div>
+                  <div className="text-xs text-gray-500 mt-1">Почему подходит: {alt.__why}</div>
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end mt-4">
+              <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-900 text-white">Закрыть</button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const ActivityCard = ({ title, icon, color, items, duration, onReplaceItem, onStartTimer }) => {
+      const colorClass = color==='purple'?'text-purple-600':color==='orange'?'text-orange-600':color==='green'?'text-green-600':'text-blue-600';
+      return (
+        <div className="bg-white rounded-3xl card flex flex-col">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center">
+                <Icon name={icon} className={"w-8 h-8 "+colorClass+" mr-3"} />
+                <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
+              </div>
+              <div className="text-xs text-gray-500">цель ~{duration} мин</div>
+            </div>
+          </div>
+          <div className="border-t border-gray-100">
+            {items && items.length>0 ? items.map(ex=>(
+              <ExerciseItem key={ex.id} ex={ex} onReplace={()=>onReplaceItem(ex)} onStartTimer={onStartTimer} />
+            )) : <div className="p-6 text-sm text-gray-600">Без конкретных упражнений сегодня.</div>}
+          </div>
+        </div>
+      );
+    };
+
+    // ---------- RPE modal ----------
+    const RPEModal = ({ open, onClose, value, onChange, painAreas, setPainAreas }) => {
+      if (!open) return null;
+      const toggleArea = a => setPainAreas(prev => prev.includes(a) ? prev.filter(x=>x!==a) : [...prev,a]);
+      return (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Самочувствие">
+          <div className="modal-card p-6">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-xl font-semibold">Как самочувствие перед занятием?</h3>
+              <button className="text-gray-400 hover:text-gray-700" onClick={onClose} aria-label="Закрыть"><Icon name="Close" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="rpe" className="text-sm font-medium text-gray-700">Усталость (RPE)</label>
+                <div aria-live="polite" className="text-sm text-gray-600 mt-1">Значение: <b>{value}</b></div>
+                <input id="rpe" type="range" min="0" max="10" value={value} onChange={e=>onChange(+e.target.value)} className="w-full" aria-valuemin={0} aria-valuemax={10} aria-valuenow={value} aria-label="Уровень усталости по шкале от 0 до 10"/>
+                <div className="flex justify-between text-xs text-gray-500"><span>0 лёгкость</span><span>10 изнеможение</span></div>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-700 mb-2">Есть чувствительность/боль?</div>
+                <div className="flex flex-wrap gap-2">
+                  {['шея','плечо','таз/спина','задняя цепь','стопа/голеностоп'].map(a=>(
+                    <button key={a} onClick={()=>toggleArea(a)} className={`px-3 py-1.5 rounded-lg border ${painAreas.includes(a)?'bg-red-50 border-red-300 text-red-700':'bg-white border-gray-200 text-gray-700'}`} aria-pressed={painAreas.includes(a)}>{a}</button>
+                  ))}
+                </div>
+                <div className="text-xs text-gray-500 mt-2">Мы подстроим сложность и исключим конфликтующие упражнения.</div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-900 text-white">Сохранить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ---------- Generator & App ----------
+    const WEEKLY_DUR = {
+      1:{1:{walking:60,stretching:25,meditation:12,exercises:15},2:{walking:60,stretching:30,meditation:15,exercises:12},3:{walking:75,stretching:25,meditation:18,exercises:18},4:{walking:60,stretching:35,meditation:15,exercises:12},5:{walking:75,stretching:40,meditation:20,exercises:20},6:{walking:90,stretching:45,meditation:25,exercises:18},7:{walking:75,stretching:30,meditation:20,exercises:0}},
+      2:{1:{walking:75,stretching:35,meditation:20,exercises:22},2:{walking:80,stretching:40,meditation:25,exercises:18},3:{walking:90,stretching:35,meditation:30,exercises:25},4:{walking:75,stretching:45,meditation:22,exercises:18},5:{walking:90,stretching:50,meditation:30,exercises:28},6:{walking:90,stretching:55,meditation:35,exercises:22},7:{walking:80,stretching:40,meditation:25,exercises:0}}
+    };
+
+    // walking presets (text steps; timer uses total minutes)
+    const WALK_PRESETS = [
+      { id:'intervals', name:'Интервалы дыхания', how:[ '3 мин обычный шаг', '1 мин длинный выдох' ], note:'Повторить 6 раз' },
+      { id:'hills', name:'Два подъёма', how:[ '5–8 мин разминка', '2 подъёма по 2–4 мин в разговорном темпе' ], note:'Между подъёмами — 3–4 мин восстановление' },
+      { id:'quest', name:'Фото‑квест', how:[ 'Найдите 3 зелёных объекта', 'Найдите 2 контрастных цвета', 'Зафиксируйте ровное дыхание' ], note:'Темп — комфортный' }
+    ];
+
+    function generatePlan({ week, day, theme, rpe, pain, lastAreas, rpeLowStreak }){
+      const seed = `${APP.seed}|cycle:${APP.cycle}|w${week}d${day}`;
+      const rng = rngFrom(seed);
+
+      // Adjust targets by RPE
+      const base = WEEKLY_DUR[week][day];
+      const factor = rpe>=7 ? 0.75 : (rpeLowStreak>=2 && rpe<=3 ? 1.1 : 1.0);
+      const tgt = {
+        walking: Math.round(base.walking*factor),
+        stretching: Math.round(base.stretching*factor),
+        meditation: Math.round(base.meditation*(rpe>=7?1.1:1.0)), // чуть больше дыхания при высокой усталости
+        exercises: Math.round(base.exercises*(rpe>=7?0.7:1.0))
+      };
+
+      // candidates
+      let st = filterByPools(EX_STRETCH, theme.pools);
+      st = filterByPain(st, pain);
+      st = filterByLevelRPE(st, rpe, rpeLowStreak);
+
+      let lf = filterByPools(EX_LFK, theme.pools.concat(['area:core','area:balance']));
+      lf = excludeStrengthIfHighRPE(lf, rpe);
+      lf = filterByPain(lf, pain);
+      lf = filterByLevelRPE(lf, rpe, rpeLowStreak);
+
+      // meditation candidates
+      let md = EX_MEDIT.slice();
+      if (rpe>=7) md = md.filter(ex => ['type:breath','type:awareness'].includes(typeOf(ex)));
+      const medList = packByMinutes(rng, md, ['type:breath','type:awareness'], tgt.meditation, lastAreas, { tolerance: 0.15 });
+
+      // pack stretch & lfk by minutes with diversity
+      const stTypesPref = theme.include.filter(t=>['type:mobility','type:neuro','type:stability'].includes(t));
+      const stList = packByMinutes(rng, st, stTypesPref.length?stTypesPref:['type:mobility','type:neuro','type:stability'], tgt.stretching, lastAreas, {});
+
+      const lfTypesPref = ['type:stability','type:strength','type:balance'].filter(t => !(rpe>=7 && t==='type:strength'));
+      let lfkList = packByMinutes(rng, lf, lfTypesPref, tgt.exercises, lastAreas, {});
+
+      // Fallback ladder
+      function fallbackIfEmpty(list, all, target){
+        if (list.length>0) return list;
+        // A) relax lastAreas constraint (ignore)
+        let cand = all.slice();
+        let l = packByMinutes(rng, cand, lfTypesPref, target, [], {});
+        if (l.length>0) return l;
+        // B) include neighbor pools (already included for LFK)
+        // C) drop to lvl:1 only
+        cand = all.filter(x => levelOf(x)==='lvl:1');
+        l = packByMinutes(rng, cand, ['type:mobility','type:stability','type:balance'], target, [], {});
+        return l;
+      }
+      lfkList = fallbackIfEmpty(lfkList, lf, tgt.exercises);
+
+      // walking preset
+      const walking = WALK_PRESETS[Math.floor(rng()*WALK_PRESETS.length)];
+
+      // why today (bullets)
+      const typesToday = Array.from(new Set(stList.concat(lfkList).map(typeOf))).map(t=>t.replace('type:',''));
+      const bullets = [];
+      bullets.push(`Тема: ${theme.title}.`);
+      if (rpe>=7) bullets.push('Высокая усталость → уменьшили объём, меньше силы, больше мобилити/дыхания.');
+      if (rpeLowStreak>=2 && rpe<=3) bullets.push('Низкая усталость последние дни → добавили сложность/объём.');
+      if (pain.length) bullets.push(`Исключили нагрузки на: ${pain.join(', ')}.`);
+      bullets.push(`Баланс стимулов: ${typesToday.join(' + ')}.`);
+      bullets.push(`KPI дня: «комфортная осанка»/ROM целевой области без болезненности.`);
+
+      // dominant area by minutes
+      const sumByArea = {};
+      const add = ex => sumByArea[areaOf(ex)] = (sumByArea[areaOf(ex)]||0) + (ex.duration||0);
+      stList.forEach(add); lfkList.forEach(add);
+      const primaryArea = Object.entries(sumByArea).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'area:unknown';
+
+      // log usage
+      const usedIds = [...stList, ...lfkList, ...medList].map(x=>x.id);
+      const oldLog = LS.get('plan.log', []);
+      const newLog = [...usedIds, ...oldLog].slice(0,60);
+      LS.set('plan.log', newLog);
+
+      return { stList, lfkList, medList, walking, whyBullets: bullets, primaryArea, targets: tgt };
+    }
+
+    function App(){
+      const [section,setSection]=useState('program');
+      const [week,setWeek]=useState(1);
+      const [day,setDay]=useState(1);
+      const [rpe,setRpe]=useState(LS.get('user.rpe', 4));
+      const [rpeHistory,setRpeHistory]=useState(LS.get('user.rpeHistory', [])); // last N
+      const [painAreas,setPainAreas]=useState(LS.get('user.pain', []));
+      const [showRPE,setShowRPE]=useState(false);
+      const [plan,setPlan]=useState(LS.get('plan.v2', {}));
+      const [history,setHistory]=useState(LS.get('generator.history.v2', [])); // [{w,d,area,minutes}...]
+
+      useEffect(()=>LS.set('user.rpe', rpe),[rpe]);
+      useEffect(()=>LS.set('user.pain', painAreas),[painAreas]);
+      useEffect(()=>LS.set('user.rpeHistory', rpeHistory),[rpeHistory]);
+      useEffect(()=>LS.set('plan.v2', plan),[plan]);
+      useEffect(()=>LS.set('generator.history.v2', history),[history]);
+
+      // derive low streak
+      const lowStreak = (rpeHistory.slice(0,2).every(x=>x<=3) && rpe<=3) ? 2 : (rpeHistory[0]<=3 && rpe<=3 ? 1 : 0);
+
+      const theme = THEMES.find(t=>t.dow===day);
+      const key = `w${week}d${day}`;
+      const dayPlan = plan[key];
+
+      // Generate in effect if missing or when RPE/pain changes
+      useEffect(()=>{
+        const lastAreas = history.slice(0,3).map(h=>h.area);
+        const gen = generatePlan({ week, day, theme, rpe, pain: painAreas, lastAreas, rpeLowStreak: lowStreak });
+        setPlan(prev => ({ ...prev, [key]: gen }));
+        // push history
+        const minutes = Object.values(gen.targets).reduce((a,b)=>a+b,0);
+        setHistory(prev => [{ w:week, d:day, area: gen.primaryArea, minutes }, ...prev].slice(0,5));
+        // update rpe history
+        setRpeHistory(prev => [rpe, ...prev].slice(0,7));
+      // eslint-disable-next-line
+      }, [week, day, rpe, JSON.stringify(painAreas)]);
+
+      // Replace flow
+      const [modal,setModal]=useState({open:false, listName:null, ex:null, candidates:[]});
+      const openReplace = (listName, ex) => {
+        const dataMap = { stList: EX_STRETCH, lfkList: EX_LFK, medList: EX_MEDIT };
+        const all = dataMap[listName]||[];
+        // candidates: prefer same type & area; filter by pain
+        let cand = all.filter(c => c.id!==ex.id);
+        cand = filterByPain(cand, painAreas);
+        // rank by match + rarity
+        cand = rankAlternatives(ex, cand);
+        // guarantee at least 2: if empty, relax to same type only, then lvl:1 any
+        if (cand.length<2){
+          let extra = all.filter(c => c.id!==ex.id && typeOf(c)===typeOf(ex));
+          extra = filterByPain(extra, painAreas);
+          extra = rankAlternatives(ex, extra);
+          cand = [...cand, ...extra].filter((v,i,a)=>a.findIndex(x=>x.id===v.id)===i);
+        }
+        if (cand.length<2){
+          let extra = all.filter(c => c.id!==ex.id && levelOf(c)==='lvl:1');
+          extra = filterByPain(extra, painAreas);
+          extra = rankAlternatives(ex, extra);
+          cand = [...cand, ...extra].filter((v,i,a)=>a.findIndex(x=>x.id===v.id)===i);
+        }
+        cand = cand.slice(0,6);
+        setModal({open:true, listName, ex, candidates:cand});
+      };
+      const pickReplace = (alt) => {
+        const p = plan[key];
+        const arr = p[modal.listName].slice();
+        const idx = arr.findIndex(x=>x.id===modal.ex.id);
+        if (idx>=0){
+          arr[idx]=alt;
+          const updated = { ...p, [modal.listName]: arr };
+          setPlan(prev => ({ ...prev, [key]: updated }));
+          // log usage
+          const oldLog = LS.get('plan.log', []);
+          LS.set('plan.log', [alt.id, ...oldLog].slice(0,60));
+        }
+        setModal({open:false, listName:null, ex:null, candidates:[]});
+      };
+
+      const timer = useTimer();
+
+      if (!dayPlan){
+        return (
+          <div className="min-h-screen">
+            <Segmented active={section} onChange={setSection} />
+            <div className="max-w-3xl mx-auto px-4 py-12">
+              <div className="bg-white rounded-2xl p-8 border border-gray-100 text-center">
+                <div className="text-lg">Готовим план на сегодня…</div>
+                <div className="text-sm text-gray-500 mt-1">Учитываем тему, усталость и историю последних дней</div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      const durs = WEEKLY_DUR[week][day];
+      const why = dayPlan.whyBullets;
+
+      return (
+        <div className="min-h-screen page show">
+          <Segmented active={section} onChange={setSection} />
+          {section==='program' && (
+            <div className="max-w-7xl mx-auto px-4 py-8">
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 subtle mb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-gray-500 uppercase font-medium">Фокус дня</div>
+                    <div className="text-xl font-semibold">{THEMES.find(t=>t.dow===day).title} <span className="text-gray-400 text-sm font-normal ml-2">Неделя {week===1?'A':'B'}</span></div>
+                    <ul className="mt-2 list-disc pl-5 text-sm text-gray-700 space-y-1">
+                      {why.map((w,i)=><li key={i}>{w}</li>)}
+                    </ul>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={()=>setShowRPE(true)} className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-sm" aria-label="Настроить план по самочувствию">Настроить (RPE)</button>
+                    <button onClick={()=>{ APP.cycle=(APP.cycle||1)+1; LS.set('app.meta', APP); setPlan(p=>{ const np={...p}; delete np[key]; return np; }); }} className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-sm flex items-center gap-1" title="Сгенерировать альтернативу на этот день"><Icon name="Shuffle" className="w-4 h-4" /> Альтернатива</button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Week/Day selectors */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex gap-2">
+                  {[1,2].map(w=>(
+                    <button key={w} onClick={()=>setWeek(w)} className={"tap w-12 h-12 rounded-lg "+(week===w?'bg-gray-900 text-white':'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50')} aria-pressed={week===w}>{w===1?'A':'B'}</button>
+                  ))}
+                </div>
+                <div className="md:hidden flex gap-2 overflow-x-auto -mx-4 px-4 pb-2 hide-scrollbar">
+                  {[1,2,3,4,5,6,7].map(dn=>(
+                    <button key={dn} onClick={()=>setDay(dn)} className={"tap min-w-[92px] px-3 py-2 rounded-lg text-center "+(day===dn?'bg-gray-900 text-white':'bg-white text-gray-700 border border-gray-200')} aria-pressed={day===dn}>
+                      <div className="font-medium text-sm">{['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'][dn-1]}</div>
+                      <div className="text-[11px] opacity-75">День {dn}</div>
+                    </button>
+                  ))}
+                </div>
+                <div className="hidden md:grid grid-cols-7 gap-2">
+                  {[1,2,3,4,5,6,7].map(dn=>(
+                    <button key={dn} onClick={()=>setDay(dn)} className={"p-3 rounded-lg text-center border "+(day===dn?'bg-gray-900 text-white border-transparent':'bg-white text-gray-700 border-gray-200 hover:bg-gray-50')} aria-pressed={day===dn}>
+                      <div className="font-medium">{['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'][dn-1]}</div>
+                      <div className="text-xs opacity-70">День {dn}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Activities */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Walking with presets */}
+                <div className="bg-white rounded-3xl card">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-5">
+                      <div className="flex items-center">
+                        <Icon name="Heart" className="w-8 h-8 text-blue-600 mr-3" />
+                        <h3 className="text-xl font-semibold text-gray-900">Прогулка</h3>
+                      </div>
+                      <div className="text-xs text-gray-500">цель ~{dayPlan.targets.walking} мин</div>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-3">
+                      <div className="text-sm font-medium text-gray-800 mb-1">Пресет: {dayPlan.walking.name}</div>
+                      <ul className="list-disc pl-5 text-sm text-gray-700">
+                        {dayPlan.walking.how.map((s,i)=><li key={i}>{s}</li>)}
+                      </ul>
+                      <div className="text-xs text-gray-500 mt-1">{dayPlan.walking.note}</div>
+                      <div className="mt-3">
+                        <button onClick={()=>timer.start(Math.max(10, Math.min(120, dayPlan.targets.walking)), 'Прогулка')} className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm">Старт таймера</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <ActivityCard title="Растяжка" icon="Circle" color="purple" items={dayPlan.stList} duration={dayPlan.targets.stretching} onReplaceItem={(ex)=>openReplace('stList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} />
+                <ActivityCard title="Медитация" icon="User" color="orange" items={dayPlan.medList} duration={dayPlan.targets.meditation} onReplaceItem={(ex)=>openReplace('medList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} />
+                <ActivityCard title="ЛФК" icon="Activity" color="green" items={dayPlan.lfkList} duration={dayPlan.targets.exercises} onReplaceItem={(ex)=>openReplace('lfkList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} />
+              </div>
+            </div>
+          )}
+
+          {section==='overview' && (
+            <div className="max-w-7xl mx-auto px-4 py-10">
+              <h1 className="text-3xl font-semibold mb-4">Вариативная программа</h1>
+              <p className="text-gray-600 mb-6">Темы по дням, недели A/B, генерация по минутам с учётом усталости, боли и истории.</p>
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 subtle">
+                <div className="text-sm text-gray-600">Принципы:</div>
+                <ul className="list-disc pl-6 text-sm text-gray-800 mt-2 space-y-1">
+                  <li>Не повторяем доминирующую область два дня подряд.</li>
+                  <li>Подбираем набор под целевые минуты с допуском ±10%.</li>
+                  <li>RPE влияет на объём и тип стимулов; боль исключает конфликтующие области.</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {section==='progress' && (
+            <div className="max-w-7xl mx-auto px-4 py-10">
+              <h1 className="text-3xl font-semibold mb-4">Прогресс</h1>
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 subtle">
+                <div className="text-sm text-gray-600">Последние дни (доминирующие области):</div>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {history.map((h,i)=>(<span key={i} className="px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs">{h.area.replace('area:','')}</span>))}
+                </div>
+                <div className="text-xs text-gray-500 mt-3">В Итерации 3 добавим аналитику по темам и влияние RPE.</div>
+              </div>
+            </div>
+          )}
+
+          <RPEModal open={showRPE} onClose={()=>setShowRPE(false)} value={rpe} onChange={setRpe} painAreas={painAreas} setPainAreas={setPainAreas} />
+          <ReplaceModal open={modal.open} onClose={()=>setModal({open:false})} ex={modal.ex} list={modal.candidates} onPick={pickReplace} />
+
+          {/* Timer UI */}
+          {timer.state.target>0 && !timer.state.collapsed && (
+            <div className="timer-sheet p-4 md:p-6" aria-live="polite">
+              <button className="absolute right-3 top-3 text-gray-400 hover:text-gray-700" aria-label="Закрыть таймер" onClick={timer.close}><Icon name="Close" /></button>
+              <div className="text-center">
+                <div className="text-sm text-gray-500 mb-1">{timer.state.label || 'Сессия'}</div>
+                <div className="text-4xl font-extralight mb-3 text-gray-900">{fmt(timer.state.time)}</div>
+                <div className="flex items-center justify-center gap-3">
+                  <button onClick={timer.pause} className="tap bg-gray-900 text-white px-5 py-3 rounded-xl">{timer.state.run?'Пауза':'Старт'}</button>
+                  <button onClick={timer.reset} className="tap bg-gray-200 text-gray-700 px-5 py-3 rounded-xl">Сброс</button>
+                  <button onClick={timer.collapse} className="tap bg-white border border-gray-200 text-gray-700 px-5 py-3 rounded-xl">Свернуть</button>
+                </div>
+              </div>
+            </div>
+          )}
+          {timer.state.target>0 && timer.state.collapsed && (
+            <button className="timer-pill flex items-center gap-2" onClick={timer.expand} title="Развернуть таймер">
+              <Icon name={timer.state.run?'Pause':'Play'} className="w-5 h-5" />
+              <span className="text-sm font-medium">{fmt(timer.state.time)}</span>
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    function Root(){
+      return <TimerProvider><App/></TimerProvider>
+    }
+
+    // Mount
+    class ErrorBoundary extends React.Component {
+      constructor(p){ super(p); this.state={hasError:false}; }
+      static getDerivedStateFromError(){ return {hasError:true}; }
+      componentDidCatch(e,i){ console.error("Uncaught error:", e, i); }
+      render(){ return this.state.hasError ? (
+        <div className="min-h-screen flex items-center justify-center bg-red-50 p-8"><div className="bg-white p-10 rounded-xl shadow-xl text-center"><h1 className="text-2xl font-bold text-red-800 mb-2">Произошла ошибка</h1><p className="text-gray-600">К сожалению, приложение не может быть загружено.</p></div></div>
+      ) : this.props.children; }
+    }
+
+    (function mount(){
+      const el=document.getElementById('root');
+      try{
+        const root=ReactDOM.createRoot(el);
+        root.render(<ErrorBoundary><Root/></ErrorBoundary>);
+      }catch(e){
+        ReactDOM.render(<ErrorBoundary><Root/></ErrorBoundary>, el);
+      }
+    })();
+  </script>
+
+  <noscript>
+    <div style="padding:16px;border:1px solid #ddd;border-radius:12px;margin:16px;font-family:system-ui">Для запуска нужен JavaScript.</div>
+  </noscript>
+</body>
+</html>
