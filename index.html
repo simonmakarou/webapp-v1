@@ -81,7 +81,11 @@
     })();
   </script>
 
-  <script type="text/babel" data-presets="env,react">
+  <script
+    type="text/babel"
+    data-presets="env,react"
+    data-plugins="proposal-optional-chaining,proposal-nullish-coalescing-operator"
+  >
     const { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } = React;
 
     // ---------- Icons ----------
