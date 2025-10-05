@@ -315,6 +315,9 @@
       const tol = options.tolerance ?? 0.10;
       const minMin = Math.round(targetMin*(1-tol));
       const maxMin = Math.round(targetMin*(1+tol));
+      if (targetMin <= 0 || (minMin <= 0 && maxMin <= 0)){
+        return [];
+      }
       let pool = candidates.slice();
       // deprioritize last primary area
       if (lastAreas && lastAreas.length){
@@ -671,7 +674,7 @@
         l = packByMinutes(rng, cand, ['type:mobility','type:stability','type:balance'], target, [], {});
         return l;
       }
-      lfkList = fallbackIfEmpty(lfkList, lf, tgt.exercises);
+      lfkList = tgt.exercises>0 ? fallbackIfEmpty(lfkList, lf, tgt.exercises) : [];
 
       // walking preset
       const walking = WALK_PRESETS[Math.floor(rng()*WALK_PRESETS.length)];
@@ -1009,6 +1012,7 @@
       }
 
       const why = dayPlan.whyBullets;
+      const showLfkCard = (dayPlan.targets?.exercises ?? 0) > 0;
 
       return (
         <div className="min-h-screen page show">
@@ -1099,7 +1103,9 @@
 
                 <ActivityCard title="Растяжка" icon="Circle" color="purple" items={dayPlan.stList} duration={dayPlan.targets.stretching} onReplaceItem={(ex)=>openReplace('stList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} doneState={doneStateForDay} onToggleDone={toggleDone} idPrefix="st" goal={goalId} />
                 <ActivityCard title="Медитация" icon="User" color="orange" items={dayPlan.medList} duration={dayPlan.targets.meditation} onReplaceItem={(ex)=>openReplace('medList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} doneState={doneStateForDay} onToggleDone={toggleDone} idPrefix="med" goal={goalId} />
-                <ActivityCard title="ЛФК" icon="Activity" color="green" items={dayPlan.lfkList} duration={dayPlan.targets.exercises} onReplaceItem={(ex)=>openReplace('lfkList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} doneState={doneStateForDay} onToggleDone={toggleDone} idPrefix="lfk" goal={goalId} />
+                {showLfkCard && (
+                  <ActivityCard title="ЛФК" icon="Activity" color="green" items={dayPlan.lfkList} duration={dayPlan.targets.exercises} onReplaceItem={(ex)=>openReplace('lfkList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} doneState={doneStateForDay} onToggleDone={toggleDone} idPrefix="lfk" goal={goalId} />
+                )}
               </div>
             </div>
           )}
