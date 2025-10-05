@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with custom base path
+        run: npm run build
+        env:
+          BASE_PATH: /ci-smoke/
+
+      - name: Preview smoke check
+        env:
+          BASE_PATH: /ci-smoke/
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort &
+          PREVIEW_PID=$!
+          sleep 5
+          curl -f http://127.0.0.1:4173/ci-smoke/ > /tmp/index.html
+          kill $PREVIEW_PID
+          wait $PREVIEW_PID || true
