@@ -14,6 +14,8 @@ npm run dev
 - `npm run build` — собирает production-бандл (`dist/`) и проверяет типы.
 - `npm run preview` — запускает предпросмотр собранного бандла.
 - `npm run lint` — запускает ESLint c базовыми правилами для TypeScript и React.
+- `npm run lint:fix` — пытается автоматически исправить найденные ESLint-проблемы.
+- `npm run format` — форматирует код с помощью Prettier.
 - `npm run test:unit` — запускает Vitest в headless-режиме.
 - `npm run test:unit:watch` — открывает Vitest UI (`@vitest/ui`) для интерактивного прогона.
 - `npm run test:e2e` — запускает e2e-сценарии Playwright (используется страница `legacy-index.html`).
@@ -24,6 +26,12 @@ npm run dev
 ```bash
 npx playwright install
 ```
+
+## Линтинг и форматирование
+
+- Для проверки кода запустите `npm run lint`. Конфигурация учитывает правила React, a11y, тестов и отключает конфликтующие с Prettier стилистические проверки.
+- Чтобы автоматически исправить проблемы, используйте `npm run lint:fix`.
+- Для приведения стиля кода к единому формату выполните `npm run format`. Настройки Prettier лежат в `prettier.config.cjs`, а исключения — в `.prettierignore`.
 
 ## Tailwind CSS
 

@@ -12,11 +12,11 @@ describe('App', () => {
       }),
     ).toBeInTheDocument()
 
-    const statusPill = screen.getByText('В работе далее')
-    expect(statusPill).toHaveClass('bg-indigo-100')
-
-    const roadmapSection = statusPill.closest('section') ?? screen.getByRole('region', { hidden: true })
-    const cards = within(roadmapSection!).getAllByRole('article')
+    const cards = screen.getAllByRole('article')
     expect(cards).toHaveLength(3)
+
+    const nextCard = cards.find((card) => within(card).queryByText('В работе далее'))
+    const statusPill = within(nextCard!).getByText('В работе далее')
+    expect(statusPill).toHaveClass('bg-indigo-100')
   })
 })
