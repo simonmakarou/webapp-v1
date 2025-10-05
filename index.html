@@ -115,6 +115,15 @@
       set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
     };
 
+    const EQUIPMENT_LABELS = {
+      none:'Без оборудования',
+      mat:'Коврик',
+      band:'Эспандер',
+      wall:'Стена'
+    };
+
+    const EQUIPMENT_DEFAULTS = { mat:true, band:false, wall:true };
+
     // ---------- Seed per device ----------
     function uuid4(){
       const s = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
@@ -136,76 +145,79 @@
 
     // ---------- Data (subset, enriched) ----------
     const EX_STRETCH = [
-      {id:'neck_decompress', name:'Декомпрессия шеи', duration:5, tags:['area:neck','type:mobility','lvl:1'],
+      {id:'neck_decompress', name:'Декомпрессия шеи', duration:5, equipment:'none', tags:['area:neck','type:mobility','lvl:1'],
         steps:['Сядь устойчиво, плечи вниз','Наклон головы вправо 20–30 сек','Вернись и повтори влево','Подбородок к груди 20 сек'],
         focus:['Тянемся макушкой','Выдох — отпускание'], mistakes:['Рывки','Поднятые плечи'],
         mechanism:'Снижение гипертонуса трапециевидной и лестничных', contraindications:'Головокружение — остановить',
         progressions:['neck_iso_antagonist'] },
-      {id:'neck_iso_antagonist', name:'Изометрия антагонистов шеи', duration:6, tags:['area:neck','type:stability','lvl:2'],
+      {id:'neck_iso_antagonist', name:'Изометрия антагонистов шеи', duration:6, equipment:'none', tags:['area:neck','type:stability','lvl:2'],
         steps:['Ладонь к виску','Надави головой на ладонь 5 сек без движения','Расслабь 5 сек ×5 в стороны и вперёд'],
         mechanism:'Нормализация тонуса через ко-конракции' },
-      {id:'door_pec', name:'Грудные у дверного проёма', duration:6, tags:['area:shoulder','type:mobility','lvl:1'],
+      {id:'door_pec', name:'Грудные у дверного проёма', duration:6, equipment:'wall', tags:['area:shoulder','type:mobility','lvl:1'],
         steps:['Предплечья на косяки 90°','Плавно корпус вперёд 30 сек','Подними руки до 120° и повтори'],
         focus:['Грудь раскрыта, поясница нейтральна'], mistakes:['Провал в пояснице'],
         mechanism:'Растяжение малой грудной, улучшение постуры' },
-      {id:'tspine_rotation', name:'Ротация грудного отдела', duration:6, tags:['area:tspine','type:mobility','lvl:1'],
+      {id:'tspine_rotation', name:'Ротация грудного отдела', duration:6, equipment:'mat', tags:['area:tspine','type:mobility','lvl:1'],
         steps:['Сидя, руки на груди','Поворот вправо + 3 микропружины + удержание','Повтор влево ×3'],
         mechanism:'Увеличение ротации T‑spine' },
-      {id:'neuro_sciatic', name:'Нейродинамика седалищного нерва', duration:7, tags:['area:hamstrings','type:neuro','lvl:1'],
+      {id:'neuro_sciatic', name:'Нейродинамика седалищного нерва', duration:7, equipment:'mat', tags:['area:hamstrings','type:neuro','lvl:1'],
         steps:['Лёжа, подтяни колено','Выпрямляй голень до натяжения','Носок на себя 30 сек ×2/ногу'],
         mechanism:'Улучшение скольжения нерва', contraindications:'Острая радикулопатия — только с терапевтом' },
-      {id:'hip_flexor_release', name:'Релиз подвздошно‑поясничной', duration:8, tags:['area:hips','type:mobility','lvl:2'],
+      {id:'hip_flexor_release', name:'Релиз подвздошно‑поясничной', duration:8, equipment:'mat', tags:['area:hips','type:mobility','lvl:2'],
         steps:['Низкий выпад','Таз вперёд/вниз, корпус вертикален','Руку вверх + наклон в сторону 45 сек'],
         mechanism:'Восстановление нейтрального таза' },
-      {id:'posterior_chain', name:'Растяжка задней цепи', duration:8, tags:['area:hamstrings','type:mobility','lvl:2'],
+      {id:'posterior_chain', name:'Растяжка задней цепи', duration:8, equipment:'mat', tags:['area:hamstrings','type:mobility','lvl:2'],
         steps:['Сидя, ноги прямые','Наклон от таза, спина ровная 30 сек','Вариант «дерево» по очереди'],
         mechanism:'Комплексное удлинение задней линии' },
-      {id:'ankle_mob', name:'Активная мобилизация голеностопа', duration:5, tags:['area:ankle','type:mobility','lvl:1'],
+      {id:'ankle_mob', name:'Активная мобилизация голеностопа', duration:5, equipment:'none', tags:['area:ankle','type:mobility','lvl:1'],
         steps:['15 тыльных/подошвенных сгибаний','15 кругов в каждую сторону','20 подъёмов на носки с паузой 2 сек'],
         mechanism:'Активация венозной помпы, рост ROM' }
     ];
 
     const EX_LFK = [
-      {id:'quad_iso', name:'Изометрия квадрицепса', duration:6, tags:['area:core','type:stability','lvl:1'],
+      {id:'quad_iso', name:'Изометрия квадрицепса', duration:6, equipment:'mat', tags:['area:core','type:stability','lvl:1'],
         steps:['Выпрями ногу','Прижимай колено 8 сек → расслабь 3 сек ×12'],
         mechanism:'Нейромышечный контроль без осевой нагрузки' },
-      {id:'deep_core', name:'Глубокие стабилизаторы (TA/multifidus)', duration:6, tags:['area:core','type:stability','lvl:2'],
+      {id:'deep_core', name:'Глубокие стабилизаторы (TA/multifidus)', duration:6, equipment:'mat', tags:['area:core','type:stability','lvl:2'],
         steps:['Лёжа, колени 90°','Втяни живот на ~30%, удерживай 10 сек','Отдых 5 сек ×15'],
         mechanism:'Активация поперечной и межостистых' },
-      {id:'wall_squat', name:'Присед у стены', duration:7, tags:['area:hips','type:strength','lvl:2'],
+      {id:'wall_squat', name:'Присед у стены', duration:7, equipment:'wall', tags:['area:hips','type:strength','lvl:2'],
         steps:['Спина по стене до ~90°','Пауза 3–5 сек, медленный подъём ×10–15'],
         mechanism:'Сила ног без компрессии' },
-      {id:'bridge', name:'Ягодичный мост', duration:6, tags:['area:hips','type:strength','lvl:1'],
+      {id:'bridge', name:'Ягодичный мост', duration:6, equipment:'mat', tags:['area:hips','type:strength','lvl:1'],
         steps:['Колени 90°','Сжать ягодицы — подъём таза','Пауза 3 сек ×15 ×2'],
         mechanism:'Стабилизация таза' },
-      {id:'single_leg_balance', name:'Баланс на одной ноге', duration:6, tags:['area:balance','type:balance','lvl:1'],
+      {id:'single_leg_balance', name:'Баланс на одной ноге', duration:6, equipment:'none', tags:['area:balance','type:balance','lvl:1'],
         steps:['Удерживай 20–45 сек','Усложнение: закрыть глаза/повороты головы'],
         mechanism:'Проприоцепция стопы и голени' },
-      {id:'dead_bug', name:'Dead Bug (анти‑ротация)', duration:6, tags:['area:core','type:stability','lvl:2'],
+      {id:'dead_bug', name:'Dead Bug (анти‑ротация)', duration:6, equipment:'mat', tags:['area:core','type:stability','lvl:2'],
         steps:['Лёжа, руки вверх, колени 90°','Опускай противоположные рука/нога','Поясница к полу'],
         mechanism:'Антиротационный контроль' },
-      {id:'heel_raise', name:'Подъёмы на носки', duration:5, tags:['area:ankle','type:strength','lvl:1'],
+      {id:'heel_raise', name:'Подъёмы на носки', duration:5, equipment:'none', tags:['area:ankle','type:strength','lvl:1'],
         steps:['20 подъёмов на носки','Пауза 2 сек вверху ×2–3 подхода'],
         mechanism:'Икроножные, венозная помпа' }
     ];
 
     const EX_MEDIT = [
-      {id:'478', name:'Дыхание 4‑7‑8', duration:10, tags:['area:breath','type:breath','lvl:1'],
+      {id:'478', name:'Дыхание 4‑7‑8', duration:10, equipment:'none', tags:['area:breath','type:breath','lvl:1'],
         steps:['Выдох ртом','Вдох носом 4','Пауза 7','Выдох 8 ×4–8 циклов'],
         mechanism:'Активация парасимпатики, снижение ЧСС' },
-      {id:'pmr', name:'Прогрессивная релаксация', duration:15, tags:['area:breath','type:awareness','lvl:1'],
+      {id:'pmr', name:'Прогрессивная релаксация', duration:15, equipment:'mat', tags:['area:breath','type:awareness','lvl:1'],
         steps:['Напряги мышцу 7 сек → расслабь 15 сек','Стопы→голени→бёдра→ягодицы→живот→спина→плечи→руки→шея→лицо'],
         mechanism:'Обучение напряжение/релаксация' },
-      {id:'body_scan', name:'Body Scan', duration:20, tags:['area:breath','type:awareness','lvl:2'],
+      {id:'body_scan', name:'Body Scan', duration:20, equipment:'mat', tags:['area:breath','type:awareness','lvl:2'],
         steps:['Лёжа, внимание сверху вниз','30–60 сек на сегмент, без оценки'],
         mechanism:'Развитие интероцепции' },
-      {id:'anapanasati', name:'Анапанасати', duration:20, tags:['area:breath','type:breath','lvl:2'],
+      {id:'anapanasati', name:'Анапанасати', duration:20, equipment:'none', tags:['area:breath','type:breath','lvl:2'],
         steps:['Сядь ровно','Естественное дыхание, счёт до 10 и заново','Возвращай внимание без самоосуждения'],
         mechanism:'Устойчивое внимание' },
-      {id:'metta', name:'Metta (доброжелательность)', duration:15, tags:['area:breath','type:awareness','lvl:1'],
+      {id:'metta', name:'Metta (доброжелательность)', duration:15, equipment:'none', tags:['area:breath','type:awareness','lvl:1'],
         steps:['Пожелания благополучия: себе → близкому → нейтральному → сложному человеку → всем'],
         mechanism:'Аффилиативные сети, эмоциональная регуляция' }
     ];
+
+    const EX_LOOKUP = {};
+    [...EX_STRETCH, ...EX_LFK, ...EX_MEDIT].forEach(ex => { EX_LOOKUP[ex.id] = ex; });
 
     // ---------- Themes ----------
     const THEMES = [
@@ -218,12 +230,58 @@
       { id:'sun_active',    dow:7, title:'Активное восстановление', pools:['area:breath','area:balance'], include:['type:awareness','type:breath'] },
     ];
 
+    const GOAL_CONFIG = {
+      rehab: {
+        factor: 0.75,
+        title: 'Реабилитация',
+        description: 'Мягкий объём, упор на восстановление и безопасность.'
+      },
+      prevent: {
+        factor: 1.0,
+        title: 'Профилактика',
+        description: 'Базовая поддержка и снятие напряжений в течение недели.'
+      },
+      support: {
+        factor: 1.15,
+        title: 'Поддержка формы',
+        description: 'Чуть больше объёма и прогрессии для регулярной практики.'
+      }
+    };
+
+    const GOAL_OPTIONS = [
+      { id:'rehab', title:'Реабилитация', description:'после травмы/болезни' },
+      { id:'prevent', title:'Профилактика', description:'сидячая работа, дискомфорт' },
+      { id:'support', title:'Поддержка формы', description:'регулярная практика' }
+    ];
+
     // ---------- Helpers ----------
     const typeOf = ex => (ex.tags.find(t=>t.startsWith('type:'))||'type:mobility');
     const areaOf = ex => (ex.tags.find(t=>t.startsWith('area:'))||'area:unknown');
     const levelOf = ex => (ex.tags.find(t=>t.startsWith('lvl:'))||'lvl:1');
     const anyTag = (ex, tags) => tags.some(t => ex.tags.includes(t));
     const filterByPools = (exs, pools) => exs.filter(ex => anyTag(ex, pools));
+    const filterByEquipment = (exs, equipment={}) => {
+      return exs.filter(ex => {
+        const need = ex.equipment || 'none';
+        if (need==='none') return true;
+        return !!equipment[need];
+      });
+    };
+    const filterByGoal = (exs, goal) => {
+      return exs.filter(ex => {
+        const lvl = parseInt(levelOf(ex).split(':')[1],10) || 1;
+        const type = typeOf(ex);
+        if (goal==='rehab'){
+          if (type==='type:strength') return false;
+          return lvl===1;
+        }
+        if (goal==='support'){
+          return lvl<=3;
+        }
+        // профилактика — уровни 1-2
+        return lvl<=2;
+      });
+    };
     const filterByPain = (exs, painAreas) => {
       const painMap = {
         'шея':['area:neck'], 'плечо':['area:shoulder','area:tspine'],
@@ -238,7 +296,10 @@
       if (lowStreak>=2 && rpe<=3) return exs.filter(ex => levelOf(ex)!=='lvl:1').concat(exs.filter(ex => levelOf(ex)==='lvl:1'));
       return exs;
     };
-    const excludeStrengthIfHighRPE = (exs, rpe) => rpe>=7 ? exs.filter(ex => typeOf(ex)!=='type:strength') : exs;
+    const excludeStrengthIfHighRPE = (exs, rpe, goal) => {
+      if (goal==='rehab') return exs.filter(ex => typeOf(ex)!=='type:strength');
+      return rpe>=7 ? exs.filter(ex => typeOf(ex)!=='type:strength') : exs;
+    };
 
     // rarity ranking support
     function countUsage(ids){
@@ -346,9 +407,9 @@
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-2 bg-gray-100 rounded-xl p-1">
-            {['overview','program','progress'].map(k=>(
+            {['overview','program','progress','profile'].map(k=>(
               <button key={k} className={"tap px-4 py-2 rounded-lg text-sm "+(active===k?'seg-active':'seg-passive')} onClick={()=>onChange(k)}>
-                {k==='overview'?'Обзор':k==='program'?'Программа':'Прогресс'}
+                {k==='overview'?'Обзор':k==='program'?'Программа':k==='progress'?'Прогресс':'Профиль'}
               </button>
             ))}
           </div>
@@ -356,14 +417,19 @@
       </div>
     );
 
-    const ExerciseItem = ({ ex, onReplace, onStartTimer, done, onToggleDone }) => {
+    const ExerciseItem = ({ ex, onReplace, onStartTimer, done, onToggleDone, goal }) => {
       const [open,setOpen]=useState(false);
+      const equipmentLabel = EQUIPMENT_LABELS[ex.equipment||'none'] || EQUIPMENT_LABELS.none;
       return (
         <div className={"border-b border-gray-100 last:border-b-0 "+(open?'bg-white':'hover:bg-gray-50')}>
           <div className="flex items-center justify-between p-4">
             <div className="flex-1 pr-4">
               <h4 className={`font-medium text-base ${done?'text-gray-400 line-through':'text-gray-800'}`}>{ex.name}</h4>
-              <div className="text-xs text-gray-500 mt-1">~ {ex.duration} мин</div>
+              <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                <span>~ {ex.duration} мин</span>
+                <span className="w-1 h-1 bg-gray-300 rounded-full" aria-hidden="true"></span>
+                <span>{equipmentLabel}</span>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-center">
@@ -391,6 +457,12 @@
               )}
               {ex.mistakes && ex.mistakes.length>0 && (
                 <div className="mb-2"><div className="text-xs font-semibold text-gray-600 uppercase mb-1">Ошибки</div><ul className="list-disc pl-5 text-sm text-gray-700">{ex.mistakes.map((s,i)=><li key={i}>{s}</li>)}</ul></div>
+              )}
+              {goal==='support' && ex.progressions && ex.progressions.length>0 && (
+                <div className="mb-2">
+                  <div className="text-xs font-semibold text-gray-600 uppercase mb-1">Прогрессии</div>
+                  <ul className="list-disc pl-5 text-sm text-gray-700">{ex.progressions.map(pid => <li key={pid}>{EX_LOOKUP[pid]?.name || pid}</li>)}</ul>
+                </div>
               )}
               {ex.mechanism && <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm text-gray-800"><b>Зачем:</b> {ex.mechanism}</div>}
               {ex.contraindications && <div className="text-xs text-orange-700 mt-1">⚠ {ex.contraindications}</div>}
@@ -430,7 +502,35 @@
       );
     };
 
-    const ActivityCard = ({ title, icon, color, items, duration, onReplaceItem, onStartTimer, doneState={}, onToggleDone, idPrefix }) => {
+    const GoalModal = ({ open, onSelect, onClose, mode='change' }) => {
+      if (!open) return null;
+      const allowClose = typeof onClose === 'function' && mode!=='onboarding';
+      return (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Выбор цели">
+          <div className="modal-card p-6">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-xl font-semibold">Выберите вашу цель</h3>
+              {allowClose && <button className="text-gray-400 hover:text-gray-700" onClick={onClose} aria-label="Закрыть"><Icon name="Close" /></button>}
+            </div>
+            <div className="space-y-3">
+              {GOAL_OPTIONS.map(opt => (
+                <button key={opt.id} onClick={()=>onSelect(opt.id)} className="w-full text-left p-4 rounded-xl border border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300" aria-label={`Выбрать цель ${opt.title}`}>
+                  <div className="text-base font-semibold text-gray-900">{opt.title}</div>
+                  <div className="text-sm text-gray-500">{opt.description}</div>
+                </button>
+              ))}
+            </div>
+            {allowClose && (
+              <div className="flex justify-end mt-4">
+                <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-900 text-white">Отмена</button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    const ActivityCard = ({ title, icon, color, items, duration, onReplaceItem, onStartTimer, doneState={}, onToggleDone, idPrefix, goal }) => {
       const colorClass = color==='purple'?'text-purple-600':color==='orange'?'text-orange-600':color==='green'?'text-green-600':'text-blue-600';
       return (
         <div className="bg-white rounded-3xl card flex flex-col">
@@ -454,6 +554,7 @@
                   onStartTimer={onStartTimer}
                   done={!!doneState[exKey]}
                   onToggleDone={()=>onToggleDone(exKey)}
+                  goal={goal}
                 />
               );
             }) : <div className="p-6 text-sm text-gray-600">Без конкретных упражнений сегодня.</div>}
@@ -511,32 +612,41 @@
       { id:'quest', name:'Фото‑квест', how:[ 'Найдите 3 зелёных объекта', 'Найдите 2 контрастных цвета', 'Зафиксируйте ровное дыхание' ], note:'Темп — комфортный' }
     ];
 
-    function generatePlan({ week, day, theme, rpe, pain, lastAreas, rpeLowStreak }){
+    function generatePlan({ week, day, theme, rpe, pain, lastAreas, rpeLowStreak, profile }){
+      const goal = profile?.goal || 'prevent';
+      const goalSettings = GOAL_CONFIG[goal] || GOAL_CONFIG.prevent;
+      const equipment = profile?.equipment ? { ...EQUIPMENT_DEFAULTS, ...profile.equipment } : { ...EQUIPMENT_DEFAULTS };
       const seed = `${APP.seed}|cycle:${APP.cycle}|w${week}d${day}`;
       const rng = rngFrom(seed);
 
       // Adjust targets by RPE
       const base = WEEKLY_DUR[week][day];
       const factor = rpe>=7 ? 0.75 : (rpeLowStreak>=2 && rpe<=3 ? 1.1 : 1.0);
+      const goalFactor = goalSettings?.factor ?? 1.0;
       const tgt = {
-        walking: Math.round(base.walking*factor),
-        stretching: Math.round(base.stretching*factor),
-        meditation: Math.round(base.meditation*(rpe>=7?1.1:1.0)), // чуть больше дыхания при высокой усталости
-        exercises: Math.round(base.exercises*(rpe>=7?0.7:1.0))
+        walking: Math.round(base.walking*factor*goalFactor),
+        stretching: Math.round(base.stretching*factor*goalFactor),
+        meditation: Math.round(base.meditation*(rpe>=7?1.1:1.0)*goalFactor), // чуть больше дыхания при высокой усталости
+        exercises: Math.round(base.exercises*(rpe>=7?0.7:1.0)*goalFactor)
       };
 
       // candidates
       let st = filterByPools(EX_STRETCH, theme.pools);
+      st = filterByGoal(st, goal);
+      st = filterByEquipment(st, equipment);
       st = filterByPain(st, pain);
       st = filterByLevelRPE(st, rpe, rpeLowStreak);
 
       let lf = filterByPools(EX_LFK, theme.pools.concat(['area:core','area:balance']));
-      lf = excludeStrengthIfHighRPE(lf, rpe);
+      lf = filterByGoal(lf, goal);
+      lf = filterByEquipment(lf, equipment);
+      lf = excludeStrengthIfHighRPE(lf, rpe, goal);
       lf = filterByPain(lf, pain);
       lf = filterByLevelRPE(lf, rpe, rpeLowStreak);
 
       // meditation candidates
-      let md = EX_MEDIT.slice();
+      let md = filterByGoal(EX_MEDIT.slice(), goal);
+      md = filterByEquipment(md, equipment);
       if (rpe>=7) md = md.filter(ex => ['type:breath','type:awareness'].includes(typeOf(ex)));
       const medList = packByMinutes(rng, md, ['type:breath','type:awareness'], tgt.meditation, lastAreas, { tolerance: 0.15 });
 
@@ -544,7 +654,8 @@
       const stTypesPref = theme.include.filter(t=>['type:mobility','type:neuro','type:stability'].includes(t));
       const stList = packByMinutes(rng, st, stTypesPref.length?stTypesPref:['type:mobility','type:neuro','type:stability'], tgt.stretching, lastAreas, {});
 
-      const lfTypesPref = ['type:stability','type:strength','type:balance'].filter(t => !(rpe>=7 && t==='type:strength'));
+      let lfTypesPref = ['type:stability','type:strength','type:balance'].filter(t => !(rpe>=7 && t==='type:strength'));
+      if (goal==='rehab') lfTypesPref = lfTypesPref.filter(t=>t!=='type:strength');
       let lfkList = packByMinutes(rng, lf, lfTypesPref, tgt.exercises, lastAreas, {});
 
       // Fallback ladder
@@ -569,6 +680,9 @@
       const typesToday = Array.from(new Set(stList.concat(lfkList).map(typeOf))).map(t=>t.replace('type:',''));
       const bullets = [];
       bullets.push(`Тема: ${theme.title}.`);
+      if (goal==='rehab') bullets.push('Цель: реабилитация → только мягкие lvl 1, −25% длительности, без силовых.');
+      if (goal==='prevent') bullets.push('Цель: профилактика → баланс мобилити и стабильности, базовые длительности.');
+      if (goal==='support') bullets.push('Цель: поддержка формы → +15% к длительности и добавлены прогрессии.');
       if (rpe>=7) bullets.push('Высокая усталость → уменьшили объём, меньше силы, больше мобилити/дыхания.');
       if (rpeLowStreak>=2 && rpe<=3) bullets.push('Низкая усталость последние дни → добавили сложность/объём.');
       if (pain.length) bullets.push(`Исключили нагрузки на: ${pain.join(', ')}.`);
@@ -602,6 +716,19 @@
 
     function App(){
       const [section,setSection]=useState('program');
+      const [profile,setProfile]=useState(()=>{
+        const raw = LS.get('user.profile', null);
+        if (raw){
+          return {
+            goal: raw.goal || 'prevent',
+            startDate: raw.startDate || new Date().toISOString().slice(0,10),
+            equipment: { ...EQUIPMENT_DEFAULTS, ...(raw.equipment||{}) }
+          };
+        }
+        return null;
+      });
+      const [showOnboarding,setShowOnboarding]=useState(()=>!LS.get('user.profile', null));
+      const [showGoalModal,setShowGoalModal]=useState(false);
       const [week,setWeek]=useState(1);
       const [day,setDay]=useState(1);
       const [rpe,setRpe]=useState(LS.get('user.rpe', 4));
@@ -613,6 +740,8 @@
       const [doneMap,setDoneMap]=useState(LS.get('progress.done', {}));
       const [completionHistory,setCompletionHistory]=useState(LS.get('progress.history', []));
       const autoAdjustRef = useRef(null);
+
+      useEffect(()=>{ if (profile) LS.set('user.profile', profile); },[profile]);
 
       useEffect(()=>LS.set('user.rpe', rpe),[rpe]);
       useEffect(()=>LS.set('user.pain', painAreas),[painAreas]);
@@ -627,6 +756,10 @@
 
       const theme = THEMES.find(t=>t.dow===day);
       const key = `w${week}d${day}`;
+      const goalId = profile?.goal || 'prevent';
+      const goalMeta = GOAL_CONFIG[goalId];
+      const equipmentState = profile?.equipment ? { ...EQUIPMENT_DEFAULTS, ...profile.equipment } : { ...EQUIPMENT_DEFAULTS };
+
       const dayPlan = plan[key];
       const exerciseKeys = useMemo(()=>buildExerciseKeys(dayPlan),[dayPlan]);
       const doneStateForDay = doneMap[key]||{};
@@ -635,6 +768,27 @@
       const dayPercent = dayTotal ? Math.round((dayDone/dayTotal)*100) : 0;
       const walkingKey = dayPlan ? `walk:${dayPlan.walking.id||'session'}` : null;
       const walkingDone = walkingKey ? !!doneStateForDay[walkingKey] : false;
+
+      const handleGoalSelect = useCallback((nextGoal)=>{
+        const today = new Date().toISOString().slice(0,10);
+        setProfile(prev => {
+          const baseEquip = prev?.equipment ? { ...EQUIPMENT_DEFAULTS, ...prev.equipment } : { ...EQUIPMENT_DEFAULTS };
+          return { goal: nextGoal, startDate: today, equipment: baseEquip };
+        });
+        setPlan(()=>({}));
+        setShowOnboarding(false);
+        setShowGoalModal(false);
+      },[setPlan, setShowGoalModal, setShowOnboarding]);
+
+      const handleEquipmentToggle = useCallback((equipKey)=>{
+        if (!profile) return;
+        setProfile(prev => {
+          const prevEquip = { ...EQUIPMENT_DEFAULTS, ...(prev?.equipment||{}) };
+          prevEquip[equipKey] = !prevEquip[equipKey];
+          return { ...prev, equipment: prevEquip };
+        });
+        setPlan(()=>({}));
+      },[profile, setPlan, setProfile]);
 
       const toggleDone = useCallback((exerciseKey)=>{
         setDoneMap(prev => {
@@ -695,6 +849,59 @@
       },[last7Days]);
       const weeklyBarColor = weeklyStats.percent>=70?'bg-green-500':weeklyStats.percent>=40?'bg-amber-400':'bg-rose-400';
 
+      const dailyAggregated = useMemo(()=>{
+        const map = new Map();
+        completionHistory.forEach(entry => {
+          if (!entry || !entry.date) return;
+          if (!map.has(entry.date)){
+            map.set(entry.date, { date: entry.date, done: 0, total: 0 });
+          }
+          const agg = map.get(entry.date);
+          agg.done += entry.done || 0;
+          agg.total += entry.total || 0;
+        });
+        return Array.from(map.values()).sort((a,b)=> new Date(b.date) - new Date(a.date));
+      },[completionHistory]);
+
+      const overallStats = useMemo(()=>{
+        if (dailyAggregated.length===0) return { percent:0, done:0, total:0 };
+        const relevant = dailyAggregated.filter(entry => entry.total>0);
+        const done = relevant.reduce((acc,e)=>acc+(e.done||0),0);
+        const total = relevant.reduce((acc,e)=>acc+(e.total||0),0);
+        const percent = total ? Math.round((done/total)*100) : 100;
+        return { percent, done, total };
+      },[dailyAggregated]);
+
+      const streak = useMemo(()=>{
+        if (dailyAggregated.length===0) return 0;
+        const map = new Map(dailyAggregated.map(entry => [entry.date, entry]));
+        const now = new Date();
+        let count = 0;
+        for (let i=0; i<365; i++){
+          const dt = new Date(now);
+          dt.setDate(now.getDate()-i);
+          const keyDate = dt.toISOString().slice(0,10);
+          const info = map.get(keyDate);
+          if (!info) break;
+          const completed = info.total>0 ? info.done>=info.total : true;
+          if (completed){
+            count++;
+          } else {
+            break;
+          }
+        }
+        return count;
+      },[dailyAggregated]);
+
+      const daysFromStart = useMemo(()=>{
+        if (!profile?.startDate) return 0;
+        const start = new Date(`${profile.startDate}T00:00:00`);
+        if (Number.isNaN(start.getTime())) return 0;
+        const now = new Date();
+        const diff = Math.floor((now - start) / 86400000);
+        return diff>=0 ? diff+1 : 0;
+      },[profile?.startDate]);
+
       useEffect(()=>{
         if (!dayPlan) return;
         if (weeklyStats.percent < 40 && rpe > 0){
@@ -716,8 +923,9 @@
 
       // Generate in effect if missing or when RPE/pain changes
       useEffect(()=>{
+        if (!profile) return;
         const lastAreas = history.slice(0,3).map(h=>h.area);
-        const gen = generatePlan({ week, day, theme, rpe, pain: painAreas, lastAreas, rpeLowStreak: lowStreak });
+        const gen = generatePlan({ week, day, theme, rpe, pain: painAreas, lastAreas, rpeLowStreak: lowStreak, profile });
         setPlan(prev => ({ ...prev, [key]: gen }));
         // push history
         const minutes = Object.values(gen.targets).reduce((a,b)=>a+b,0);
@@ -725,28 +933,40 @@
         // update rpe history
         setRpeHistory(prev => [rpe, ...prev].slice(0,7));
       // eslint-disable-next-line
-      }, [week, day, rpe, JSON.stringify(painAreas)]);
+      }, [profile, week, day, rpe, JSON.stringify(painAreas)]);
 
       // Replace flow
       const [modal,setModal]=useState({open:false, listName:null, ex:null, candidates:[]});
       const openReplace = (listName, ex) => {
         const dataMap = { stList: EX_STRETCH, lfkList: EX_LFK, medList: EX_MEDIT };
         const all = dataMap[listName]||[];
-        // candidates: prefer same type & area; filter by pain
+        const goal = profile?.goal || 'prevent';
+        const eq = profile?.equipment ? { ...EQUIPMENT_DEFAULTS, ...profile.equipment } : { ...EQUIPMENT_DEFAULTS };
+        // candidates: prefer same type & area; фильтры цели/оборудования/боли
         let cand = all.filter(c => c.id!==ex.id);
+        cand = filterByGoal(cand, goal);
+        cand = filterByEquipment(cand, eq);
         cand = filterByPain(cand, painAreas);
+        cand = filterByLevelRPE(cand, rpe, lowStreak);
+        if (listName==='lfkList') cand = excludeStrengthIfHighRPE(cand, rpe, goal);
         // rank by match + rarity
         cand = rankAlternatives(ex, cand);
         // guarantee at least 2: if empty, relax to same type only, then lvl:1 any
         if (cand.length<2){
           let extra = all.filter(c => c.id!==ex.id && typeOf(c)===typeOf(ex));
+          extra = filterByGoal(extra, goal);
+          extra = filterByEquipment(extra, eq);
           extra = filterByPain(extra, painAreas);
+          extra = filterByLevelRPE(extra, rpe, lowStreak);
           extra = rankAlternatives(ex, extra);
           cand = [...cand, ...extra].filter((v,i,a)=>a.findIndex(x=>x.id===v.id)===i);
         }
         if (cand.length<2){
           let extra = all.filter(c => c.id!==ex.id && levelOf(c)==='lvl:1');
+          extra = filterByGoal(extra, goal);
+          extra = filterByEquipment(extra, eq);
           extra = filterByPain(extra, painAreas);
+          extra = filterByLevelRPE(extra, rpe, lowStreak);
           extra = rankAlternatives(ex, extra);
           cand = [...cand, ...extra].filter((v,i,a)=>a.findIndex(x=>x.id===v.id)===i);
         }
@@ -772,19 +992,22 @@
 
       if (!dayPlan){
         return (
-          <div className="min-h-screen">
-            <Segmented active={section} onChange={setSection} />
-            <div className="max-w-3xl mx-auto px-4 py-12">
-              <div className="bg-white rounded-2xl p-8 border border-gray-100 text-center">
-                <div className="text-lg">Готовим план на сегодня…</div>
-                <div className="text-sm text-gray-500 mt-1">Учитываем тему, усталость и историю последних дней</div>
+          <>
+            <div className="min-h-screen">
+              <Segmented active={section} onChange={setSection} />
+              <div className="max-w-3xl mx-auto px-4 py-12">
+                <div className="bg-white rounded-2xl p-8 border border-gray-100 text-center">
+                  <div className="text-lg">Готовим план на сегодня…</div>
+                  <div className="text-sm text-gray-500 mt-1">Учитываем тему, усталость и историю последних дней</div>
+                </div>
               </div>
             </div>
-          </div>
+            <GoalModal open={showGoalModal} onSelect={handleGoalSelect} onClose={()=>setShowGoalModal(false)} />
+            <GoalModal open={(showOnboarding || !profile)} onSelect={handleGoalSelect} mode="onboarding" />
+          </>
         );
       }
 
-      const durs = WEEKLY_DUR[week][day];
       const why = dayPlan.whyBullets;
 
       return (
@@ -874,9 +1097,9 @@
                   </div>
                 </div>
 
-                <ActivityCard title="Растяжка" icon="Circle" color="purple" items={dayPlan.stList} duration={dayPlan.targets.stretching} onReplaceItem={(ex)=>openReplace('stList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} doneState={doneStateForDay} onToggleDone={toggleDone} idPrefix="st" />
-                <ActivityCard title="Медитация" icon="User" color="orange" items={dayPlan.medList} duration={dayPlan.targets.meditation} onReplaceItem={(ex)=>openReplace('medList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} doneState={doneStateForDay} onToggleDone={toggleDone} idPrefix="med" />
-                <ActivityCard title="ЛФК" icon="Activity" color="green" items={dayPlan.lfkList} duration={dayPlan.targets.exercises} onReplaceItem={(ex)=>openReplace('lfkList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} doneState={doneStateForDay} onToggleDone={toggleDone} idPrefix="lfk" />
+                <ActivityCard title="Растяжка" icon="Circle" color="purple" items={dayPlan.stList} duration={dayPlan.targets.stretching} onReplaceItem={(ex)=>openReplace('stList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} doneState={doneStateForDay} onToggleDone={toggleDone} idPrefix="st" goal={goalId} />
+                <ActivityCard title="Медитация" icon="User" color="orange" items={dayPlan.medList} duration={dayPlan.targets.meditation} onReplaceItem={(ex)=>openReplace('medList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} doneState={doneStateForDay} onToggleDone={toggleDone} idPrefix="med" goal={goalId} />
+                <ActivityCard title="ЛФК" icon="Activity" color="green" items={dayPlan.lfkList} duration={dayPlan.targets.exercises} onReplaceItem={(ex)=>openReplace('lfkList', ex)} onStartTimer={(min,label)=>timer.start(min,label)} doneState={doneStateForDay} onToggleDone={toggleDone} idPrefix="lfk" goal={goalId} />
               </div>
             </div>
           )}
@@ -945,8 +1168,66 @@
             </div>
           )}
 
+          {section==='profile' && (
+            <div className="max-w-4xl mx-auto px-4 py-10">
+              <h1 className="text-3xl font-semibold mb-4">Профиль</h1>
+              {!profile ? (
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 subtle">
+                  <p className="text-gray-600">Чтобы персонализировать программу, выберите цель.</p>
+                  <button onClick={()=>setShowOnboarding(true)} className="mt-4 px-4 py-2 rounded-lg bg-gray-900 text-white">Выбрать цель</button>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 subtle">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                      <div>
+                        <div className="text-sm text-gray-500 uppercase font-medium">Цель</div>
+                        <div className="text-2xl font-semibold text-gray-900 mt-1">{goalMeta?.title || 'Персонализация'}</div>
+                        <div className="text-sm text-gray-500 mt-1">{goalMeta?.description}</div>
+                        <div className="text-xs text-gray-400 mt-2">Старт программы: {profile.startDate}</div>
+                      </div>
+                      <button onClick={()=>setShowGoalModal(true)} className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">Изменить цель</button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                      <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">Дни с момента старта</div>
+                        <div className="text-2xl font-semibold text-gray-900 mt-1">{daysFromStart || '—'}</div>
+                        <div className="text-xs text-gray-500">дней в программе</div>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">Общий % выполнения</div>
+                        <div className="text-2xl font-semibold text-gray-900 mt-1">{overallStats.percent}%</div>
+                        <div className="text-xs text-gray-500">на основе отмеченных упражнений</div>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">Streak (дни подряд)</div>
+                        <div className="text-2xl font-semibold text-gray-900 mt-1">{streak}</div>
+                        <div className="text-xs text-gray-500">подряд с выполнением</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 subtle">
+                    <div className="text-sm font-semibold text-gray-700">Доступное оборудование</div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4">
+                      {['mat','band','wall'].map(eq => (
+                        <label key={eq} className="flex items-center gap-2 text-sm text-gray-700">
+                          <input type="checkbox" className="w-4 h-4" checked={!!equipmentState[eq]} onChange={()=>handleEquipmentToggle(eq)} />
+                          <span>{EQUIPMENT_LABELS[eq]}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-3">Мы подбираем только упражнения, которые можно выполнить с доступным оборудованием.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <RPEModal open={showRPE} onClose={()=>setShowRPE(false)} value={rpe} onChange={setRpe} painAreas={painAreas} setPainAreas={setPainAreas} />
           <ReplaceModal open={modal.open} onClose={()=>setModal({open:false})} ex={modal.ex} list={modal.candidates} onPick={pickReplace} />
+          <GoalModal open={showGoalModal} onSelect={handleGoalSelect} onClose={()=>setShowGoalModal(false)} />
+          <GoalModal open={(showOnboarding || !profile)} onSelect={handleGoalSelect} mode="onboarding" />
 
           {/* Timer UI */}
           {timer.state.target>0 && !timer.state.collapsed && (
