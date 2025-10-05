@@ -14,6 +14,16 @@ npm run dev
 - `npm run build` — собирает production-бандл (`dist/`) и проверяет типы.
 - `npm run preview` — запускает предпросмотр собранного бандла.
 - `npm run lint` — запускает ESLint c базовыми правилами для TypeScript и React.
+- `npm run test:unit` — запускает Vitest в headless-режиме.
+- `npm run test:unit:watch` — открывает Vitest UI (`@vitest/ui`) для интерактивного прогона.
+- `npm run test:e2e` — запускает e2e-сценарии Playwright (используется страница `legacy-index.html`).
+- `npm run test:e2e:headed` — выполняет e2e-тесты в видимом браузере.
+
+Перед первым запуском e2e-тестов установите браузеры Playwright:
+
+```bash
+npx playwright install
+```
 
 ## Tailwind CSS
 
