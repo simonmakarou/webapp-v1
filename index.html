@@ -1263,6 +1263,62 @@
       return { stList, lfkList, medList, walking, whyBullets: bullets, primaryArea, targets: tgt };
     }
 
+    const ensureArrayOfStrings = (value) => Array.isArray(value) ? value.filter(v => typeof v === 'string' && v.trim()) : [];
+    const ensureExerciseList = (value) => Array.isArray(value)
+      ? value.filter(item => item && typeof item === 'object' && item.id)
+      : [];
+    const ensureNumber = (value) => {
+      const num = typeof value === 'number' ? value : parseFloat(value);
+      return Number.isFinite(num) && num >= 0 ? Math.round(num) : 0;
+    };
+
+    function sanitizeDayPlanEntry(entry){
+      if (!entry || typeof entry !== 'object') return null;
+
+      const walkingRaw = entry.walking;
+      const targetsRaw = entry.targets;
+
+      if (!walkingRaw || typeof walkingRaw !== 'object') return null;
+      if (!targetsRaw || typeof targetsRaw !== 'object') return null;
+
+      const walking = {
+        ...walkingRaw,
+        id: walkingRaw.id || 'session',
+        name: typeof walkingRaw.name === 'string' ? walkingRaw.name : 'Прогулка',
+        note: typeof walkingRaw.note === 'string' ? walkingRaw.note : '',
+        how: ensureArrayOfStrings(walkingRaw.how),
+      };
+
+      const targets = {
+        ...targetsRaw,
+        walking: ensureNumber(targetsRaw.walking),
+        stretching: ensureNumber(targetsRaw.stretching),
+        meditation: ensureNumber(targetsRaw.meditation),
+        exercises: ensureNumber(targetsRaw.exercises),
+      };
+
+      return {
+        ...entry,
+        stList: ensureExerciseList(entry.stList),
+        lfkList: ensureExerciseList(entry.lfkList),
+        medList: ensureExerciseList(entry.medList),
+        walking,
+        whyBullets: ensureArrayOfStrings(entry.whyBullets),
+        primaryArea: typeof entry.primaryArea === 'string' ? entry.primaryArea : 'area:unknown',
+        targets,
+      };
+    }
+
+    function sanitizePlanStore(rawPlan){
+      if (!rawPlan || typeof rawPlan !== 'object') return {};
+      const clean = {};
+      Object.entries(rawPlan).forEach(([key, value]) => {
+        const sanitized = sanitizeDayPlanEntry(value);
+        if (sanitized) clean[key] = sanitized;
+      });
+      return clean;
+    }
+
     function buildExerciseKeys(plan){
       if (!plan) return [];
       const keys = [];
@@ -1294,7 +1350,14 @@
       const [rpeHistory,setRpeHistory]=useState(LS.get('user.rpeHistory', [])); // last N
       const [painAreas,setPainAreas]=useState(()=>normalizePainAreas(LS.get('user.pain', [])));
       const [showRPE,setShowRPE]=useState(false);
-      const [plan,setPlan]=useState(LS.get('plan.v2', {}));
+      const [planState,setPlanState]=useState(()=>sanitizePlanStore(LS.get('plan.v2', {})));
+      const plan = planState;
+      const setPlan = useCallback((updater)=>{
+        setPlanState(prev => {
+          const nextValue = typeof updater === 'function' ? updater(prev) : updater;
+          return sanitizePlanStore(nextValue);
+        });
+      },[]);
       const [history,setHistory]=useState(LS.get('generator.history.v2', [])); // [{w,d,area,minutes}...]
       const [doneMap,setDoneMap]=useState(LS.get('progress.done', {}));
       const [completionHistory,setCompletionHistory]=useState(LS.get('progress.history', []));
@@ -1305,7 +1368,9 @@
       useEffect(()=>LS.set('user.rpe', rpe),[rpe]);
       useEffect(()=>LS.set('user.pain', painAreas),[painAreas]);
       useEffect(()=>LS.set('user.rpeHistory', rpeHistory),[rpeHistory]);
-      useEffect(()=>LS.set('plan.v2', plan),[plan]);
+      useEffect(()=>{
+        LS.set('plan.v2', sanitizePlanStore(plan));
+      },[plan]);
       useEffect(()=>LS.set('generator.history.v2', history),[history]);
       useEffect(()=>LS.set('progress.done', doneMap),[doneMap]);
       useEffect(()=>LS.set('progress.history', completionHistory),[completionHistory]);
@@ -1575,7 +1640,7 @@
         );
       }
 
-      const why = dayPlan.whyBullets;
+      const why = Array.isArray(dayPlan.whyBullets) ? dayPlan.whyBullets : [];
       const showLfkCard = (dayPlan.targets?.exercises ?? 0) > 0;
 
       return (
