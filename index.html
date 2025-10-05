@@ -227,7 +227,7 @@
       { id:'thu_ankle',     dow:4, title:'Стопа и голеностоп',    pools:['area:ankle','area:balance'],   include:['type:mobility','type:strength'] },
       { id:'fri_integration',dow:5,title:'Интеграция и координация', pools:['area:core','area:balance'], include:['type:stability','type:balance'] },
       { id:'sat_deload',    dow:6, title:'Длинная прогулка + мобилити', pools:['area:hips','area:tspine'], include:['type:mobility'] },
-      { id:'sun_active',    dow:7, title:'Активное восстановление', pools:['area:breath','area:balance','area:tspine'], include:['type:awareness','type:breath','type:mobility'] },
+      { id:'sun_active',    dow:7, title:'Активное восстановление', pools:['area:breath','area:balance','area:neck','area:tspine','area:shoulder','area:hips','area:hamstrings'], include:['type:awareness','type:breath','type:mobility'] },
     ];
 
     const GOAL_CONFIG = {
@@ -689,7 +689,11 @@
       if (rpe>=7) bullets.push('Высокая усталость → уменьшили объём, меньше силы, больше мобилити/дыхания.');
       if (rpeLowStreak>=2 && rpe<=3) bullets.push('Низкая усталость последние дни → добавили сложность/объём.');
       if (pain.length) bullets.push(`Исключили нагрузки на: ${pain.join(', ')}.`);
-      bullets.push(`Баланс стимулов: ${typesToday.join(' + ')}.`);
+      if (typesToday.length) {
+        bullets.push(`Баланс стимулов: ${typesToday.join(' + ')}.`);
+      } else {
+        bullets.push('Фокус: восстановление/дыхание.');
+      }
       bullets.push(`KPI дня: «комфортная осанка»/ROM целевой области без болезненности.`);
 
       // dominant area by minutes
