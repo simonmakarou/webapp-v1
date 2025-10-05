@@ -689,7 +689,11 @@
       if (rpe>=7) bullets.push('Высокая усталость → уменьшили объём, меньше силы, больше мобилити/дыхания.');
       if (rpeLowStreak>=2 && rpe<=3) bullets.push('Низкая усталость последние дни → добавили сложность/объём.');
       if (pain.length) bullets.push(`Исключили нагрузки на: ${pain.join(', ')}.`);
-      bullets.push(`Баланс стимулов: ${typesToday.join(' + ')}.`);
+      if (typesToday.length) {
+        bullets.push(`Баланс стимулов: ${typesToday.join(' + ')}.`);
+      } else {
+        bullets.push('Фокус: восстановление/дыхание.');
+      }
       bullets.push(`KPI дня: «комфортная осанка»/ROM целевой области без болезненности.`);
 
       // dominant area by minutes
