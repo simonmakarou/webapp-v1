@@ -10,10 +10,10 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
   <!-- Babel for JSX in this single-file demo -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin="anonymous" src="https://cdn.tailwindcss.com"></script>
 
   <!-- Inter font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76,8 +76,22 @@
       }
       if (!window.React || !window.ReactDOM) { show('Не удалось загрузить React/ReactDOM из CDN. Нужна офлайн‑сборка? Скажи — соберу.'); return; }
       if (!window.Babel) { show('Не удалось загрузить Babel (для JSX). Открой при доступном интернете или дам офлайн‑версию.'); return; }
-      window.addEventListener('error', e => show('Ошибка: ' + (e && e.message ? e.message : 'неизвестно')));
-      window.addEventListener('unhandledrejection', e => show('Ошибка (promise): ' + (e && e.reason && e.reason.message ? e.reason.message : 'неизвестно')));
+      window.addEventListener('error', function(e) {
+        var message = e && e.message ? e.message : 'неизвестно';
+        var source = '';
+        if (e && e.filename) {
+          source = ' (' + e.filename;
+          if (e.lineno) { source += ':' + e.lineno; }
+          if (e.colno) { source += ':' + e.colno; }
+          source += ')';
+        }
+        show('Ошибка: ' + message + source);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var reason = e && e.reason;
+        var detail = reason && reason.message ? reason.message : reason ? String(reason) : 'неизвестно';
+        show('Ошибка (promise): ' + detail);
+      });
     })();
   </script>
 
